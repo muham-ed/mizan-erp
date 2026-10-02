@@ -1,0 +1,90 @@
+mizan-erp/
+├── docker-compose.yml
+├── package.json                  # root workspace
+├── pnpm-workspace.yaml
+├── turbo.json
+├── .env.example
+├── .gitignore
+├── README.md
+│
+├── apps/
+│   ├── api/                      # NestJS backend
+│   │   ├── src/
+│   │   │   ├── main.ts
+│   │   │   ├── app.module.ts
+│   │   │   ├── common/
+│   │   │   │   ├── decorators/
+│   │   │   │   │   ├── current-user.decorator.ts
+│   │   │   │   │   ├── current-tenant.decorator.ts
+│   │   │   │   │   ├── roles.decorator.ts
+│   │   │   │   │   └── public.decorator.ts
+│   │   │   │   ├── guards/
+│   │   │   │   │   ├── jwt-auth.guard.ts
+│   │   │   │   │   ├── roles.guard.ts
+│   │   │   │   │   └── tenant.guard.ts
+│   │   │   │   ├── filters/
+│   │   │   │   ├── interceptors/
+│   │   │   │   └── dto/
+│   │   │   ├── config/
+│   │   │   │   ├── configuration.ts
+│   │   │   │   └── env.validation.ts
+│   │   │   ├── prisma/
+│   │   │   │   ├── prisma.module.ts
+│   │   │   │   └── prisma.service.ts
+│   │   │   ├── modules/
+│   │   │   │   ├── auth/
+│   │   │   │   ├── tenants/
+│   │   │   │   ├── users/
+│   │   │   │   ├── inventory/
+│   │   │   │   ├── sales/
+│   │   │   │   ├── dashboard/
+│   │   │   │   └── ai/
+│   │   │   └── redis/
+│   │   │       ├── redis.module.ts
+│   │   │       └── redis.service.ts
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma
+│   │   │   ├── migrations/
+│   │   │   ├── rls.sql
+│   │   │   └── seed.ts
+│   │   ├── test/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   ├── tsconfig.json
+│   │   └── nest-cli.json
+│   │
+│   └── web/                      # Next.js frontend
+│       ├── src/
+│       │   ├── app/
+│       │   │   ├── [locale]/     # i18n routing: /ar, /en
+│       │   │   │   ├── layout.tsx
+│       │   │   │   ├── page.tsx
+│       │   │   │   ├── login/page.tsx
+│       │   │   │   └── dashboard/page.tsx
+│       │   │   └── globals.css
+│       │   ├── components/
+│       │   │   └── ui/           # shadcn/ui
+│       │   ├── lib/
+│       │   │   ├── api.ts
+│       │   │   ├── auth.ts
+│       │   │   └── utils.ts
+│       │   ├── i18n/
+│       │   │   ├── config.ts
+│       │   │   └── messages/
+│       │   │       ├── ar.json
+│       │   │       └── en.json
+│       │   └── middleware.ts
+│       ├── public/
+│       ├── tailwind.config.ts
+│       ├── next.config.mjs
+│       ├── package.json
+│       └── tsconfig.json
+│
+└── packages/
+    ├── shared/                   # shared types & Zod schemas
+    │   ├── src/
+    │   │   ├── schemas/          # Zod schemas shared FE/BE
+    │   │   ├── types/            # shared TS types
+    │   │   └── index.ts
+    │   └── package.json
+    └── config/                   # shared configs (eslint, tsconfig)

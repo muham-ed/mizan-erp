@@ -1,0 +1,28 @@
+{
+  "name": "mizan-erp",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.4.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @mizan/api test:e2e",
+    "db:generate": "pnpm --filter @mizan/api prisma:generate",
+    "db:migrate": "pnpm --filter @mizan/api prisma:migrate",
+    "db:reset": "pnpm --filter @mizan/api prisma:reset",
+    "db:seed": "pnpm --filter @mizan/api prisma:seed",
+    "db:rls": "pnpm --filter @mizan/api prisma:rls",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down -v"
+  },
+  "devDependencies": {
+    "turbo": "^2.1.0",
+    "typescript": "^5.5.4"
+  }
+}

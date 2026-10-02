@@ -1,0 +1,48 @@
+name: mizan-erp
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    container_name: mizan_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mizan_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_postgres_password_min_16_chars}
+      POSTGRES_DB: ${POSTGRES_DB:-mizan_erp_db}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - mizan_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mizan_admin} -d ${POSTGRES_DB:-mizan_erp_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: mizan_redis
+    restart: unless-stopped
+    command:
+      - "redis-server"
+      - "--appendonly"
+      - "yes"
+      - "--requirepass"
+      - "${REDIS_PASSWORD:-change_me_redis_password_min_16_chars}"
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - mizan_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change_me_redis_password_min_16_chars}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mizan_pg_data:
+    name: mizan_pg_data
+  mizan_redis_data:
+    name: mizan_redis_data
