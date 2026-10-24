@@ -1,11 +1,4 @@
-// apps/api/src/modules/ai/ai.controller.ts
-import {
-  Controller,
-  ParseFilePipe,
-  Post,
-  UploadedFile,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, ParseFilePipe, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -31,8 +24,7 @@ export class AiController {
     },
   })
   async ocrInvoice(
-    @UploadedFile(new ParseFilePipe({ fileIsRequired: true }))
-    file: Express.Multer.File,
+    @UploadedFile(new ParseFilePipe({ fileIsRequired: true })) file: Express.Multer.File,
   ) {
     return this.ai.processInvoiceImage(file.buffer, file.mimetype);
   }

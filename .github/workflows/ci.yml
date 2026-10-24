@@ -1,0 +1,74 @@
+name: Mizan ERP CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    name: Build & E2E Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: mizan_admin
+          POSTGRES_PASSWORD: mizan_secret_password_123456
+          POSTGRES_DB: mizan_erp_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.4-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9.4.0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Run E2E Tests
+        env:
+          NODE_ENV: test
+          PORT: 4000
+          WEB_ORIGIN: http://localhost:3000
+          RATE_LIMIT_PER_MIN: 120
+          DATABASE_URL: postgresql://mizan_admin:mizan_secret_password_123456@localhost:5432/mizan_erp_db?schema=public
+          TEST_DATABASE_URL: postgresql://mizan_admin:mizan_secret_password_123456@localhost:5432/mizan_test_db?schema=public
+          REDIS_URL: redis://localhost:6379
+          JWT_ACCESS_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+          JWT_REFRESH_SECRET: fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
+          JWT_ACCESS_TTL: 15m
+          JWT_REFRESH_TTL: 7d
+          AI_PROVIDER: mock
+        run: pnpm test:e2e

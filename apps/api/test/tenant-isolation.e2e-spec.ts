@@ -1,7 +1,4 @@
-// apps/api/test/tenant-isolation.e2e-spec.ts
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-
 import { PrismaService } from '../src/prisma/prisma.service';
 import { createTestApp } from './helpers/test-app';
 
@@ -15,7 +12,6 @@ describe('Tenant Isolation (RLS)', () => {
     app = await createTestApp();
     prisma = app.get(PrismaService);
 
-    // Clean slate
     await prisma.asSuperAdmin(async (tx) => {
       await tx.stockMovement.deleteMany();
       await tx.stockLevel.deleteMany();
@@ -27,22 +23,14 @@ describe('Tenant Isolation (RLS)', () => {
 
     const plan = await prisma.subscriptionPlan.findFirstOrThrow({ where: { code: 'free' } });
 
-    const a = await prisma.tenant.create({
-      data: {
-        name: 'Tenant A', slug: 'tenant-a', email: 'a@test.com',
-        planId: plan.id, status: 'TRIAL',
-      },
+    tenantA = await prisma.tenant.create({
+      data: { name: 'Tenant A', slug: `a-${Date.now()}`, email: `a-${Date.now()}@test.com`, planId: plan.id, status: 'TRIAL' },
       select: { id: true },
     });
-    const b = await prisma.tenant.create({
-      data: {
-        name: 'Tenant B', slug: 'tenant-b', email: 'b@test.com',
-        planId: plan.id, status: 'TRIAL',
-      },
+    tenantB = await prisma.tenant.create({
+      data: { name: 'Tenant B', slug: `b-${Date.now()}`, email: `b-${Date.now()}@test.com`, planId: plan.id, status: 'TRIAL' },
       select: { id: true },
     });
-    tenantA = a;
-    tenantB = b;
   });
 
   afterAll(async () => {
@@ -53,72 +41,66 @@ describe('Tenant Isolation (RLS)', () => {
     await app.close();
   });
 
-  it('inserts a product under tenant A and cannot see it under tenant B', async () => {
-    // Insert as A
-    const productA = await prisma.withTenant(tenantA.id, async (tx) =>
+  it('product created under tenant A is invisible to tenant B', async () => {
+    const productA = await prisma.withTenant(tenantA.id, (tx) =>
       tx.product.create({
-        data: {
-          tenantId: tenantA.id,
-          sku: 'SKU-A-1',
-          name: 'Product A',
-          costPrice: 10,
-          salePrice: 20,
-        },
-        select: { id: true, sku: true },
+        data: { tenantId: tenantA.id, sku: 'SKU-A', name: 'A', costPrice: 10, salePrice: 20 },
+        select: { id: true },
       }),
     );
-    expect(productA.sku).toBe('SKU-A-1');
-
-    // Query as B — MUST be empty
-    const asB = await prisma.withTenant(tenantB.id, async (tx) =>
-      tx.product.findMany(),
-    );
+    const asB = await prisma.withTenant(tenantB.id, (tx) => tx.product.findMany());
     expect(asB).toHaveLength(0);
-
-    // Query as A — must find it
-    const asA = await prisma.withTenant(tenantA.id, async (tx) =>
-      tx.product.findMany(),
-    );
+    const asA = await prisma.withTenant(tenantA.id, (tx) => tx.product.findMany());
     expect(asA).toHaveLength(1);
     expect(asA[0].id).toBe(productA.id);
   });
 
-  it('rejects an INSERT with the wrong tenantId', async () => {
+  it('INSERT with the wrong tenantId is blocked by WITH CHECK', async () => {
     await expect(
-      prisma.withTenant(tenantA.id, async (tx) =>
+      prisma.withTenant(tenantA.id, (tx) =>
         tx.product.create({
-          data: {
-            tenantId: tenantB.id, // WRONG — should be blocked by RLS WITH CHECK
-            sku: 'SKU-X',
-            name: 'Cross-tenant insert',
-            costPrice: 1,
-            salePrice: 1,
-          },
+          data: { tenantId: tenantB.id, sku: 'SKU-X', name: 'X', costPrice: 1, salePrice: 1 },
         }),
       ),
     ).rejects.toThrow();
   });
 
-  it('withTenant rejects an invalid tenantId', async () => {
+  it('withTenant rejects SQL injection attempts in tenantId', async () => {
     await expect(
       prisma.withTenant("'; DROP TABLE users; --", async () => null),
     ).rejects.toThrow(/invalid tenantId/);
   });
 
   it('asSuperAdmin can see across tenants', async () => {
-    await prisma.withTenant(tenantB.id, async (tx) =>
+    await prisma.withTenant(tenantB.id, (tx) =>
       tx.product.create({
-        data: {
-          tenantId: tenantB.id,
-          sku: 'SKU-B-1',
-          name: 'Product B',
-          costPrice: 1,
-          salePrice: 2,
-        },
+        data: { tenantId: tenantB.id, sku: 'SKU-B', name: 'B', costPrice: 1, salePrice: 2 },
       }),
     );
-
-    const all = await prisma.asSuperAdmin(async (tx) => tx.product.findMany());
+    const all = await prisma.asSuperAdmin((tx) => tx.product.findMany());
     expect(all.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('verifies asSuperAdmin context does NOT leak into subsequent withTenant calls on pooled connections', async () => {
+    // 1. Run asSuperAdmin
+    await prisma.asSuperAdmin(async (tx) => {
+      const prods = await tx.product.findMany();
+      expect(prods.length).toBeGreaterThanOrEqual(2);
+    });
+
+    // 2. Immediately run withTenant for Tenant A on same instance
+    const asA = await prisma.withTenant(tenantA.id, async (tx) => {
+      // Check session variable inside Postgres
+      const [{ is_admin }] = await tx.$queryRawUnsafe<{ is_admin: string }[]>(
+        `SELECT COALESCE(current_setting('app.is_super_admin', true), '') AS is_admin;`,
+      );
+      expect(is_admin).not.toBe('true');
+
+      // Verify RLS is actively filtering tenant A's scope only
+      return tx.product.findMany();
+    });
+
+    expect(asA.length).toBe(1);
+    expect(asA[0].tenantId).toBe(tenantA.id);
   });
 });

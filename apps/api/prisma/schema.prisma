@@ -1,26 +1,12 @@
-// apps/api/prisma/schema.prisma
-// =====================================================================
-// Mizan ERP — Multi-tenant schema.
-//
-// RULES:
-//  - Every tenant-scoped model has `tenantId` + index on it.
-//  - Unique constraints are ALWAYS composite with tenantId.
-//  - IDs are cuid strings (NOT uuid) — the RLS helper uses text.
-//  - Money uses Decimal(14,2). Quantities use Decimal(14,3).
-// =====================================================================
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("MIGRATE_DATABASE_URL")
 }
-
-// ----------------------------------------------------------------
-// Enums
-// ----------------------------------------------------------------
 
 enum TenantStatus {
   TRIAL
@@ -50,10 +36,6 @@ enum InvoiceStatus {
   OVERDUE
   CANCELLED
 }
-
-// ----------------------------------------------------------------
-// Tenancy & Plans
-// ----------------------------------------------------------------
 
 model Tenant {
   id        String       @id @default(cuid())
@@ -104,10 +86,6 @@ model SubscriptionPlan {
   @@map("subscription_plans")
 }
 
-// ----------------------------------------------------------------
-// Users
-// ----------------------------------------------------------------
-
 model User {
   id           String    @id @default(cuid())
   tenantId     String    @map("tenant_id")
@@ -132,10 +110,6 @@ model User {
   @@index([tenantId, isActive])
   @@map("users")
 }
-
-// ----------------------------------------------------------------
-// Inventory
-// ----------------------------------------------------------------
 
 model Category {
   id        String   @id @default(cuid())
@@ -243,10 +217,6 @@ model StockMovement {
   @@index([tenantId, createdAt])
   @@map("stock_movements")
 }
-
-// ----------------------------------------------------------------
-// Sales
-// ----------------------------------------------------------------
 
 model Customer {
   id        String   @id @default(cuid())

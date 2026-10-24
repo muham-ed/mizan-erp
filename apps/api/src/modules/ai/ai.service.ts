@@ -1,4 +1,3 @@
-// apps/api/src/modules/ai/ai.service.ts
 import {
   BadRequestException,
   Injectable,
@@ -11,7 +10,7 @@ export interface ExtractedInvoice {
   vendorName: string | null;
   taxNumber: string | null;
   invoiceNumber: string | null;
-  date: string | null;       // ISO 8601
+  date: string | null;
   subtotal: number;
   taxAmount: number;
   totalAmount: number;
@@ -27,11 +26,7 @@ export interface ExtractedInvoice {
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_MIME = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-  'application/pdf',
+  'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf',
 ]);
 
 @Injectable()
@@ -40,49 +35,30 @@ export class AiInvoiceOcrService {
 
   constructor(private readonly config: ConfigService) {}
 
-  async processInvoiceImage(
-    fileBuffer: Buffer,
-    mimeType: string,
-  ): Promise<ExtractedInvoice> {
+  async processInvoiceImage(fileBuffer: Buffer, mimeType: string): Promise<ExtractedInvoice> {
     if (!fileBuffer?.length) throw new BadRequestException('Empty file');
-    if (fileBuffer.length > MAX_BYTES) {
-      throw new BadRequestException('File too large (max 10 MB)');
-    }
-    if (!ALLOWED_MIME.has(mimeType)) {
-      throw new BadRequestException(`Unsupported mime type: ${mimeType}`);
-    }
+    if (fileBuffer.length > MAX_BYTES) throw new BadRequestException('File too large');
+    if (!ALLOWED_MIME.has(mimeType)) throw new BadRequestException(`Unsupported type: ${mimeType}`);
 
-    const provider = this.config.getOrThrow<'mock' | 'openai' | 'gemini' | 'claude'>(
-      'ai.provider',
-    );
+    const provider = this.config.getOrThrow<'mock' | 'openai' | 'gemini' | 'claude'>('ai.provider');
     const apiKey = this.config.get<string | null>('ai.apiKey');
 
     if (provider === 'mock' || !apiKey) {
-      this.logger.warn('Using MOCK OCR provider (no AI_API_KEY set)');
+      this.logger.warn('Using MOCK OCR');
       return this.mockResult();
     }
 
     switch (provider) {
-      case 'openai':
-        return this.callOpenAI(fileBuffer, mimeType, apiKey);
+      case 'openai': return this.callOpenAI(fileBuffer, mimeType, apiKey);
       case 'claude':
-      case 'gemini':
-        throw new ServiceUnavailableException(`${provider} not yet implemented`);
-      default:
-        throw new BadRequestException(`Unknown provider: ${provider}`);
+      case 'gemini': throw new ServiceUnavailableException(`${provider} not implemented`);
+      default: throw new BadRequestException(`Unknown provider: ${provider}`);
     }
   }
 
-  // ---------------- providers ----------------
-
-  private async callOpenAI(
-    buffer: Buffer,
-    mimeType: string,
-    apiKey: string,
-  ): Promise<ExtractedInvoice> {
+  private async callOpenAI(buffer: Buffer, mimeType: string, apiKey: string): Promise<ExtractedInvoice> {
     const model = this.config.getOrThrow<string>('ai.model');
     const base64 = buffer.toString('base64');
-
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30_000);
 
@@ -90,53 +66,31 @@ export class AiInvoiceOcrService {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
           model,
           response_format: { type: 'json_object' },
           messages: [
-            {
-              role: 'system',
-              content:
-                'Extract structured invoice data from the image. ' +
-                'Return JSON only with keys: vendorName, taxNumber, invoiceNumber, ' +
-                'date (ISO 8601), subtotal, taxAmount, totalAmount, currency, ' +
-                'lineItems[{description, quantity, unitPrice, totalPrice}], confidenceScore (0-1). ' +
-                'Support Arabic and English invoices. Return null for missing fields.',
-            },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: 'Extract the invoice.' },
-                {
-                  type: 'image_url',
-                  image_url: { url: `data:${mimeType};base64,${base64}` },
-                },
-              ],
-            },
+            { role: 'system', content: 'Extract structured invoice data as JSON: vendorName, taxNumber, invoiceNumber, date, subtotal, taxAmount, totalAmount, currency, lineItems[], confidenceScore. Arabic + English.' },
+            { role: 'user', content: [
+              { type: 'text', text: 'Extract the invoice.' },
+              { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+            ]},
           ],
         }),
       });
 
       if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        this.logger.error(`OpenAI ${res.status}: ${body}`);
-        throw new ServiceUnavailableException('OCR provider failed');
+        this.logger.error(`OpenAI ${res.status}: ${await res.text().catch(() => '')}`);
+        throw new ServiceUnavailableException('OCR failed');
       }
-
-      const json = (await res.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
+      const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
       const raw = json.choices?.[0]?.message?.content;
       if (!raw) throw new ServiceUnavailableException('Empty OCR response');
-
       return this.parseExtracted(raw);
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
-        throw new ServiceUnavailableException('OCR provider timeout');
+        throw new ServiceUnavailableException('OCR timeout');
       }
       throw err;
     } finally {
@@ -144,26 +98,14 @@ export class AiInvoiceOcrService {
     }
   }
 
-  /**
-   * Parse + validate the AI response so a malformed payload cannot crash
-   * the API or pollute the DB with garbage.
-   */
   private parseExtracted(raw: string): ExtractedInvoice {
     let json: unknown;
-    try {
-      json = JSON.parse(raw);
-    } catch {
-      throw new ServiceUnavailableException('AI returned non-JSON');
-    }
-    if (!json || typeof json !== 'object') {
-      throw new ServiceUnavailableException('AI returned invalid shape');
-    }
+    try { json = JSON.parse(raw); } catch { throw new ServiceUnavailableException('Non-JSON AI response'); }
+    if (!json || typeof json !== 'object') throw new ServiceUnavailableException('Invalid AI shape');
     const o = json as Record<string, unknown>;
 
-    const num = (v: unknown): number =>
-      typeof v === 'number' && Number.isFinite(v) ? v : 0;
-    const str = (v: unknown): string | null =>
-      typeof v === 'string' && v.trim() ? v : null;
+    const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+    const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v : null);
 
     const items = Array.isArray(o.lineItems) ? o.lineItems : [];
     const lineItems = items.map((it) => {
@@ -177,7 +119,6 @@ export class AiInvoiceOcrService {
     });
 
     const confidence = num(o.confidenceScore);
-
     return {
       vendorName: str(o.vendorName),
       taxNumber: str(o.taxNumber),
@@ -191,8 +132,6 @@ export class AiInvoiceOcrService {
       confidenceScore: Math.min(Math.max(confidence, 0), 1),
     };
   }
-
-  // ---------------- mock ----------------
 
   private mockResult(): ExtractedInvoice {
     return {

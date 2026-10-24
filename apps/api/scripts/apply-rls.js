@@ -1,15 +1,14 @@
-// apps/api/scripts/apply-rls.js
-// Applies prisma/sql/rls.sql after migrations. Idempotent.
-// Uses the same DATABASE_URL that Prisma uses.
+// Applies prisma/sql/rls.sql after migrations.
+// Uses MIGRATE_DATABASE_URL (migrator role that owns the schema).
 
 const fs = require('fs');
 const path = require('path');
 const { Client } = require('pg');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '..', '.env') });
 
 async function main() {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error('DATABASE_URL is required');
+  const url = process.env.MIGRATE_DATABASE_URL || process.env.DATABASE_URL;
+  if (!url) throw new Error('MIGRATE_DATABASE_URL is required');
 
   const sql = fs.readFileSync(
     path.join(__dirname, '..', 'prisma', 'sql', 'rls.sql'),
@@ -20,7 +19,7 @@ async function main() {
   await client.connect();
   try {
     await client.query(sql);
-    console.log('✅ RLS applied successfully');
+    console.log('✅ RLS applied');
     const { rows } = await client.query('SELECT * FROM rls_status ORDER BY tablename');
     console.table(rows);
   } finally {
@@ -28,7 +27,4 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('❌ Failed to apply RLS:', err);
-  process.exit(1);
-});
+main().catch((err) => { console.error('❌ RLS failed:', err); process.exit(1); });

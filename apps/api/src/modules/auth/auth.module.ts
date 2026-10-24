@@ -1,4 +1,3 @@
-// apps/api/src/modules/auth/auth.module.ts
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -16,9 +15,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('jwt.accessSecret'),
-        signOptions: {
-          expiresIn: config.getOrThrow<string>('jwt.accessTtl'),
-        },
+        signOptions: { expiresIn: config.getOrThrow<string>('jwt.accessTtl') },
       }),
     }),
   ],

@@ -1,10 +1,6 @@
-// apps/api/src/common/decorators/current-tenant.decorator.ts
 import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
-/**
- * Returns the tenantId from the authenticated user.
- * NEVER reads from headers, query, or body — only from the JWT-verified user.
- */
+/** Returns tenantId from the JWT-verified user. Never from headers/body. */
 export const CurrentTenant = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext): string => {
     const req = ctx.switchToHttp().getRequest<{ user?: { tenantId?: string } }>();

@@ -1,4 +1,3 @@
-// apps/api/src/main.ts
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -14,10 +13,8 @@ async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-
-  const webOrigin = config.getOrThrow<string>('webOrigin');
   app.enableCors({
-    origin: [webOrigin],
+    origin: [config.getOrThrow<string>('webOrigin')],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   });
@@ -38,20 +35,16 @@ async function bootstrap(): Promise<void> {
       .setTitle('Mizan ERP API')
       .setDescription('Multi-tenant SaaS ERP for MENA — MVP')
       .setVersion('1.0')
-      .addBearerAuth(
-        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-        'access-token',
-      )
+      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
       .build();
-    const doc = SwaggerModule.createDocument(app, swaggerCfg);
-    SwaggerModule.setup('docs', app, doc);
+    SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerCfg));
   }
 
   const port = config.getOrThrow<number>('port');
   await app.listen(port);
-  logger.log(`🚀 Mizan API → http://localhost:${port}/api/v1`);
+  logger.log(`🚀 http://localhost:${port}/api/v1`);
   if (config.getOrThrow<string>('nodeEnv') !== 'production') {
-    logger.log(`📚 Swagger → http://localhost:${port}/docs`);
+    logger.log(`📚 http://localhost:${port}/docs`);
   }
 }
 

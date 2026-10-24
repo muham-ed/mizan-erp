@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+.pnp.*
+.yarn/
 
 # Build outputs
 dist/
@@ -8,33 +10,54 @@ build/
 .next/
 out/
 *.tsbuildinfo
+.turbo/
 
 # Env
 .env
 .env.*
 !.env.example
+.envrc
+.direnv/
 
 # Logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
+yarn-error.log*
 
-# OS / IDE
+# OS
 .DS_Store
 Thumbs.db
-.idea/
+*.swp
+*.swo
+*~
+
+# IDE
+.idea/*
+!.idea/codeStyles/
+!.idea/inspectionProfiles/
+*.iml
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 
-# Test
+# Test / coverage
 coverage/
 .nyc_output/
-
-# Turbo
-.turbo/
+jest-coverage/
 
 # Prisma
+apps/api/prisma/generated/
 apps/api/prisma/migrations/dev.db*
+*.db
+*.db-journal
 
-# Docker
+# Docker / runtime
 *.pid
+*.seed
+*.pid.lock
+
+# Cache
+.npm/
+.eslintcache
+.stylelintcache

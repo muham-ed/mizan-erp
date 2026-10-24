@@ -1,4 +1,3 @@
-// apps/api/src/config/configuration.ts
 export interface AppConfig {
   nodeEnv: 'development' | 'test' | 'production';
   port: number;
