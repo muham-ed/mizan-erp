@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiModule } from './modules/ai/ai.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 
@@ -26,6 +27,7 @@ import { RolesGuard } from './common/guards/roles.guard';
     RedisModule,
     AuthModule,
     AiModule,
+    InventoryModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
